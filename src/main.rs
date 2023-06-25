@@ -1,7 +1,15 @@
+use std::cmp;
+
 fn main() {
     println!("Hello, world!");
 }
 
+enum RacketMov {
+    Up,
+    Down,
+}
+
+#[derive(Clone)]
 struct Pieze {
     size : i32,
     x : i32,
@@ -35,10 +43,21 @@ impl Pong {
         }
     }
 
-    fn tick(&mut self) {
+    fn move_racket(&self, mut racket : Pieze, mov : Option<RacketMov>) -> Pieze {
+        racket.y = match mov {
+            Some(RacketMov::Up) => cmp::max(racket.y - 1, 0),
+            Some(RacketMov::Down) => cmp::min(racket.y + 1, self.rows - racket.size),
+            None => racket.y,
+        };
+
+        racket
+    }
+
+    fn tick(&mut self, racket_a_mov : Option<RacketMov>, racket_b_mov : Option<RacketMov>) {
+        self.racket_a = self.move_racket(self.racket_a.clone(), racket_a_mov); 
+        self.racket_b = self.move_racket(self.racket_b.clone(), racket_b_mov); 
+
         let ball = &self.ball;
-        let racket_a = &self.racket_a;
-        let racket_b = &self.racket_b;
 
         let hits_vertical_wall : bool = ball.y + self.ball_dir_y < 0 || ball.y + ball.size-1 + self.ball_dir_y >= self.rows;
         if hits_vertical_wall {
@@ -46,6 +65,8 @@ impl Pong {
         }
 
         /* Generalize by 2D collision detection? */
+        let racket_a = &self.racket_a;
+        let racket_b = &self.racket_b;
         let hits_racket_a : bool = ball.x + self.ball_dir_x <= racket_a.x && ball.y + ball.size-1 + self.ball_dir_y >= racket_a.y && ball.y + self.ball_dir_y <= racket_a.y + racket_a.size-1;
         let hits_racket_b : bool = ball.x + ball.size-1 + self.ball_dir_x >= self.racket_b.x && ball.y + ball.size-1 + self.ball_dir_y >= racket_b.y && ball.y + self.ball_dir_y <= racket_b.y + racket_b.size-1;
         let hits_wall_a : bool = ball.x + self.ball_dir_x < 0;
@@ -90,16 +111,16 @@ mod tests {
         assert!(game.racket_b.x == 7);
         assert!(game.racket_b.y == 2);
 
-        game.tick();
-        game.tick();
-        game.tick();
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
         assert!(game.ball.x == 2);
         assert!(game.ball.y == 3);
 
-        game.tick();
-        game.tick();
-        game.tick();
-        game.tick();
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
         assert!(game.ball.x == 4);
         assert!(game.ball.y == 1);
     }
@@ -119,28 +140,61 @@ mod tests {
         assert!(game.racket_b.x == 9);
         assert!(game.racket_b.y == 3);
 
-        game.tick();
-        game.tick();
-        game.tick();
-        game.tick();
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
         assert!(game.ball.x == 0);
         assert!(game.ball.y == 5);
-        game.tick();
+        game.tick(None, None);
         assert!(game.score_a == 0);
         assert!(game.score_b == 1);
         assert!(game.ball.x == 4);
         assert!(game.ball.y == 3);
         
-        game.tick();
-        game.tick();
-        game.tick();
-        game.tick();
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
+        game.tick(None, None);
         assert!(game.ball.x == 8);
         assert!(game.ball.y == 1);
-        game.tick();
+        game.tick(None, None);
         assert!(game.score_a == 1);
         assert!(game.score_b == 1);
         assert!(game.ball.x == 4);
         assert!(game.ball.y == 3);
+    }
+
+    #[test]
+    fn moves_rackets() {
+        let mut game : Pong = Pong::build(10, 8);
+        assert!(game.racket_a.size == 2);
+        assert!(game.racket_a.x == 0);
+        assert!(game.racket_a.y == 3);
+
+        assert!(game.racket_b.size == 2);
+        assert!(game.racket_b.x == 9);
+        assert!(game.racket_b.y == 3);
+
+        game.tick(Some(RacketMov::Up), None);
+        assert!(game.racket_a.x == 0);
+        assert!(game.racket_a.y == 2);
+        assert!(game.racket_b.x == 9);
+        assert!(game.racket_b.y == 3);
+
+        game.tick(Some(RacketMov::Up), Some(RacketMov::Down));
+        assert!(game.racket_a.x == 0);
+        assert!(game.racket_a.y == 1);
+        assert!(game.racket_b.x == 9);
+        assert!(game.racket_b.y == 4);
+
+        game.tick(Some(RacketMov::Up), Some(RacketMov::Down));
+        game.tick(Some(RacketMov::Up), Some(RacketMov::Down));
+        game.tick(Some(RacketMov::Up), Some(RacketMov::Down));
+        game.tick(Some(RacketMov::Up), Some(RacketMov::Down));
+        assert!(game.racket_a.x == 0);
+        assert!(game.racket_a.y == 0);
+        assert!(game.racket_b.x == 9);
+        assert!(game.racket_b.y == 6);
     }
 }
