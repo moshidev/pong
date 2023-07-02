@@ -1,29 +1,46 @@
 mod pong;
 use crate::pong::{Pong, RacketMov};
 
-use console::Term;
+use crossterm::event::{poll, read, Event, KeyEventKind, KeyCode};
+use std::time::{Instant, Duration};
 
 fn main() {
-    let stdout = Term::buffered_stdout();
-    let mut game = Pong::build(24, 12);
+    let mut game = Pong::build(26, 16);
+    crossterm::terminal::enable_raw_mode().unwrap();
 
-    loop {
+    'game_loop: loop {
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
         println!("{}", game);
-
+        println!("Press q for quitting!");
+        
         let mut racket_a_mov : Option<RacketMov> = None;
-        if let Ok(c) = stdout.read_char() {
-            match c {
-                'j' => racket_a_mov = Some(RacketMov::Up),
-                'k' => racket_a_mov = Some(RacketMov::Down),
-                'q' => break,
-                _ => (),
+        let mut racket_b_mov : Option<RacketMov> = None;
+
+        let start = Instant::now();
+        while Instant::now().duration_since(start).as_millis() < 200 {
+            if poll(Duration::from_millis(200)).unwrap() {
+                match read().unwrap() {
+                    Event::Key(event) => {
+                        if event.kind == KeyEventKind::Press {
+                            match event.code {
+                                KeyCode::Char('q') => { break 'game_loop; },
+                                KeyCode::Char('a') => { racket_a_mov = Some(RacketMov::Up); },
+                                KeyCode::Char('z') => { racket_a_mov = Some(RacketMov::Down); },
+                                KeyCode::Char('k') => { racket_b_mov = Some(RacketMov::Up); },
+                                KeyCode::Char('m') => { racket_b_mov = Some(RacketMov::Down); },
+                                _ => {},
+                            }
+                        }
+                    },
+                    _ => {},
+                }
             }
         }
-        stdout.clear_line().unwrap();
 
-        game.tick(racket_a_mov, None);
+        game.tick(racket_a_mov, racket_b_mov);
     }
+
+    crossterm::terminal::disable_raw_mode().unwrap();
 }
 
 impl std::fmt::Display for Pong {
